@@ -136,7 +136,7 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
             return -1;
         }
         // get file size
-        ULONGLONG file_size;
+        ULONGLONG vhd_file_size;
         {
             GET_VIRTUAL_DISK_INFO vinfo;
             vinfo.Version = GET_VIRTUAL_DISK_INFO_SIZE;
@@ -151,7 +151,7 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
                 CloseHandle(vhd_handle);
                 return -1;
             }
-            file_size = vinfo.Size.VirtualSize;
+            vhd_file_size = vinfo.Size.VirtualSize;
         }
 
         // open file
@@ -169,15 +169,30 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
             return -1;
         }
 
+        DWORD file_size = GetFileSize(file_handle, NULL);
+        if (file_size == -1)
+        {
+            wprintf(L"can't get file size\n");
+            CloseHandle(vhd_handle);
+            CloseHandle(file_handle);
+            return -1;
+        }
+        if (file_size > vhd_file_size)
+        {
+            wprintf(L"file size is too large\n");
+            CloseHandle(vhd_handle);
+            CloseHandle(file_handle);
+            return -1;
+        }
 
-        PBYTE buf = new BYTE[file_size];
+        PBYTE buf = new BYTE[vhd_file_size];
         DWORD bytes_read;
         OVERLAPPED over = {};
         if (!ReadFile(file_handle, buf, file_size, &bytes_read, NULL))
         {
             wprintf(L"write error\n");
         }
-        if (!WriteFile(vhd_handle, buf, file_size, &bytes_read, &over))
+        if (!WriteFile(vhd_handle, buf, vhd_file_size, &bytes_read, &over))
         {
             if (!GetOverlappedResult(vhd_handle, &over, &bytes_read, TRUE))
             {
